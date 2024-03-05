@@ -1,0 +1,1 @@
+runtime/python.exe ./cmd/inference_cmd.py

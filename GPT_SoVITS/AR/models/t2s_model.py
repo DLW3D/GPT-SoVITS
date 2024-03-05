@@ -387,7 +387,7 @@ class Text2SemanticDecoder(nn.Module):
         )
         
 
-        for idx in tqdm(range(1500)):
+        for idx in range(1500):
             
             xy_dec, _ = self.h((xy_pos, None), mask=xy_attn_mask, cache=cache)
             logits = self.ar_predict_layer(

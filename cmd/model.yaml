@@ -1,0 +1,18 @@
+0:
+  name: 默认配置1
+  device:
+  sovits_path: GPT_SoVITS/pretrained_models/s2G488k.pth
+  gpt_path: GPT_SoVITS/pretrained_models/s1bert25hz-2kh-longer-epoch=68e-step=50232.ckpt
+  ref_wav_path: ref_wav/ref_wav1.wav
+  prompt_text: ref_wav1.wav 对应的文本
+  prompt_language: 中文
+  text_language: 中英混合
+1:
+  name: 默认配置2
+  device: CABLE Input
+  sovits_path: SoVITS_weights/Sample_e8_s144.pth
+  gpt_path: GPT_weights/Sample-e15.ckpt
+  ref_wav_path: ref_wav/ref_wav2.wav
+  prompt_text: ref_wav2.wav 对应的文本
+  prompt_language: 中英混合
+  text_language: 中英混合

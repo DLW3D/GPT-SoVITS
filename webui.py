@@ -5,6 +5,8 @@ import json,yaml,warnings,torch
 import platform
 import psutil
 import signal
+import matplotlib
+matplotlib.use('TkAgg')
 
 warnings.filterwarnings("ignore")
 torch.manual_seed(233333)
