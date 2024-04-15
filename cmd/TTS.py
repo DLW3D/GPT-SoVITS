@@ -3,6 +3,9 @@ import time
 import yaml
 import threading
 import pyaudio
+import wave
+import tkinter as tk
+from tkinter import filedialog
 from inference_cmd import get_tts_wav, change_sovits_weights, change_gpt_weights
 
 
@@ -31,6 +34,7 @@ class Text2play:
 
         # 模型
         self.id = 0
+        self.name = ''
         self.model_dict_path = './cmd/model.yaml'
 
     @property
@@ -48,6 +52,7 @@ class Text2play:
         self.set_device(self.model_dict[id]['device'])
         self.set_model(**self.model_dict[id])
         self.id = id
+        self.name = self.model_dict[id]['name']
 
     def set_model(self, sovits_path, gpt_path, **kwargs):
         change_sovits_weights(sovits_path)
@@ -95,14 +100,15 @@ class Text2play:
         stream.stop_stream()
         stream.close()
 
-    def play_async(self, audio, rate=32000, text=None):
+    def play_async(self, audio, rate, text, auto_start):
         self.async_players.append(
-            AsyncPlayer(self.pyAudio, self.target_device_index, audio, rate, self.channels, text=text)
+            AsyncPlayer(self.pyAudio, self.target_device_index, audio, rate, self.channels,
+                        text=text, auto_start=auto_start)
         )
 
-    def tts(self, text, id):
+    def tts(self, text, id, auto_start):
         audio, sampling_rate = self.get_wav_by_id(text, id)
-        self.play_async(audio, sampling_rate, text)
+        self.play_async(audio, sampling_rate, f"{self.name}：{text}", auto_start)
         self.async_players_idx = -1
 
     def interact(self, name_id=0):
@@ -154,10 +160,13 @@ class Text2play:
                     iprint(e)
                 if cmd is not None:
                     continue
-            # 修改角色
+            # 切换配置
             msg = msg.replace('：', ':')
             if ':' in msg:
                 name_id_, msg_ = msg.split(':')
+                if name_id_ == 's':  # 保存音频文件
+                    self.async_players.pop(self.async_players_idx).save()
+                    continue
                 try:
                     name_id = int(name_id_)
                     msg = msg_
@@ -168,9 +177,13 @@ class Text2play:
             # 替换掉特殊字符
             msg = msg.replace('+', '加').replace('-', '减').replace('*', '乘').replace('/', '除')
             msg = msg.replace('=', '等于').replace('>', '大于').replace('<', '小于')
+            # 自动播放
+            auto_start = True
+            if msg[0] == ' ':
+                auto_start = False
             # 播放
             try:
-                threading.Thread(target=self.tts, args=(msg, name_id)).start()
+                threading.Thread(target=self.tts, args=(msg, name_id, auto_start)).start()
             except Exception as e:
                 iprint(e)
 
@@ -185,7 +198,7 @@ class Text2play:
 
 
 class AsyncPlayer:
-    def __init__(self, pyAudio, target_device_index, audio, rate, channels=1, text=None):
+    def __init__(self, pyAudio, target_device_index, audio, rate, channels=1, text=None, auto_start=True):
         self.pyAudio = pyAudio
         self.target_device_index = target_device_index
         self.audio = audio
@@ -194,7 +207,11 @@ class AsyncPlayer:
         self.text = text
         self.seek = 0
         self.stream = None
-        self.restart()
+        self.silent_save = True  # 保存wav文件路径为？当前目录下save文件夹：弹窗指定路径
+        if auto_start:
+            self.restart()
+        else:
+            iprint('Ready:' + text, end="\r\n")
 
     # 重播
     def restart(self):
@@ -230,6 +247,31 @@ class AsyncPlayer:
         self.stop()
         if self.stream:
             self.stream.close()
+
+    # 保存
+    def save(self, file_name=None):
+        file_name = file_name or self.text[:20]
+
+        if self.silent_save:
+            # 默认保存位置
+            save_path = './save/'
+            os.makedirs(save_path, exist_ok=True)
+            file_path = os.path.join(save_path, file_name) + '.wav'
+        else:
+            # 弹窗选择保存位置
+            root = tk.Tk()
+            root.withdraw()
+            file_path = filedialog.asksaveasfilename(initialfile=file_name, defaultextension=".wav",
+                                                     filetypes=[("WAV files", "*.wav")])
+            if not file_path:
+                return  # User canceled
+
+        wf = wave.open(file_path, 'wb')
+        wf.setnchannels(self.channels)
+        wf.setsampwidth(self.pyAudio.get_sample_size(self.pyAudio.get_format_from_width(self.audio.dtype.itemsize)))
+        wf.setframerate(self.rate)
+        wf.writeframes(b''.join(self.audio))
+        wf.close()
 
     def __del__(self):
         self.close()
